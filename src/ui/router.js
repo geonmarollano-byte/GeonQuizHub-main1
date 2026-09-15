@@ -27,6 +27,11 @@ export class Router {
     const next = this._screenById(id);
     if (!next) return false;
     const prev = this.current;
+    // Showing the screen that is already active is a no-op. This keeps
+    // double navigation (e.g. Start Your Mission renders AND the nav handler
+    // both showing 'mission') from firing onChange twice - which would speak
+    // the screen's readable content twice and replay the click sound.
+    if (prev === next) return true;
     if (pushHistory && prev && prev !== next) this.history.push(prev.id);
     if (this.history.length > 40) this.history.shift();
     for (const s of this.screens) s.classList.remove(this.screenClass);
