@@ -91,7 +91,11 @@
       <div id="level-grid" class="level-grid" role="list"></div>
     </section>
 
-    <!-- QUIZ -->
+    <!-- QUIZ (Normal + Daily share the screen; engines differ by mode) -->
+    <!-- AI READER TARGETING: the reader speaks ONLY elements marked
+         data-ai-reader="true" (the question below). It never scrapes whole
+         screens, so menus, buttons, HUD, items and scores stay silent.
+         Answer feedback is spoken via fixed phrases, not from the DOM. -->
     <section id="screen-quiz" class="screen" aria-label="Quiz">
       <div class="quiz-top">
         <button id="quiz-quit" class="btn-back" type="button" aria-label="Quit quiz">←</button>
@@ -104,7 +108,7 @@
         <span>🔥 <b id="quiz-streak">0</b></span>
         <span id="quiz-mode-tag" class="quiz-mode-tag"></span>
       </div>
-      <div id="quiz-question" class="quiz-question" aria-live="polite"></div>
+      <div id="quiz-question" class="quiz-question" data-ai-reader="true" aria-live="polite"></div>
       <div id="quiz-choices" class="choice-list"></div>
       <div id="quiz-feedback" class="quiz-feedback" aria-live="assertive"></div>
       <div class="item-bar" id="quiz-items">
@@ -155,7 +159,7 @@
         <button id="reviewer-quit" class="btn-back" type="button" aria-label="Quit review">←</button>
         <div class="quiz-level" id="reviewer-progress">1 / 10</div>
       </div>
-      <div id="reviewer-question" class="quiz-question" aria-live="polite"></div>
+      <div id="reviewer-question" class="quiz-question" data-ai-reader="true" aria-live="polite"></div>
       <div id="reviewer-choices" class="choice-list"></div>
       <div id="reviewer-feedback" class="quiz-feedback" aria-live="assertive"></div>
       <button id="reviewer-next" class="btn btn-primary btn-lg hidden" type="button">NEXT →</button>
@@ -179,7 +183,7 @@
 
     <section id="screen-story-reader" class="screen" aria-label="Story reader">
       <div class="screen-head"><button class="btn-back" data-back type="button" aria-label="Back">←</button><h2 id="story-reader-title">Story</h2></div>
-      <div id="story-passage" class="story-passage"></div>
+      <div id="story-passage" class="story-passage" data-ai-reader="true"></div>
       <button id="story-start-questions" class="btn btn-primary btn-lg" type="button">START QUESTIONS →</button>
     </section>
 
@@ -188,7 +192,7 @@
         <div class="quiz-level" id="story-progress">1 / 5</div>
         <div class="quiz-mode-tag" id="story-qtype"></div>
       </div>
-      <div id="story-question" class="quiz-question" aria-live="polite"></div>
+      <div id="story-question" class="quiz-question" data-ai-reader="true" aria-live="polite"></div>
       <div id="story-choices" class="choice-list"></div>
       <div id="story-feedback" class="quiz-feedback" aria-live="assertive"></div>
       <button id="story-next" class="btn btn-primary btn-lg hidden" type="button">NEXT →</button>
@@ -210,8 +214,8 @@
         <div class="mission-step" id="mission-step">MISSION 1 OF 5</div>
         <div class="mission-name" id="mission-name"></div>
         <div class="mission-subject" id="mission-subject"></div>
-        <p class="mission-brief" id="mission-brief"></p>
-        <div id="mission-question" class="quiz-question" aria-live="polite"></div>
+        <p class="mission-brief" id="mission-brief" data-ai-reader="true"></p>
+        <div id="mission-question" class="quiz-question" data-ai-reader="true" aria-live="polite"></div>
         <div id="mission-choices" class="choice-list"></div>
         <div id="mission-feedback" class="quiz-feedback" aria-live="assertive"></div>
       </div>

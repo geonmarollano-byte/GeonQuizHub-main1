@@ -67,7 +67,14 @@ const router = new Router({
     // Refresh the quiz item bar when returning to an active quiz (e.g. after
     // buying items in the Shop) so counts/enabled states are never stale.
     if (id === 'quiz' && engine) updateItemCounts();
-    if (settings.get('reader')) reader.readCurrentScreen();
+    if (settings.get('reader')) {
+      // AI Reader: a screen change always cancels speech in flight, then
+      // speaks ONLY the new screen's explicitly targeted readable content
+      // (data-ai-reader="true": quiz question, story passage, mission brief
+      // + question...). Screens without readable content stay silent.
+      reader.stop();
+      reader.readCurrentScreen();
+    }
   },
 });
 
@@ -75,6 +82,24 @@ const reader = new AIReader({
   settings,
   getActiveScreen: () => router.current,
 });
+
+/**
+ * AI Reader duplicate-speech guard. Tracks the readable content that was last
+ * announced so re-renders, retries (the engine re-presents the SAME question
+ * after a wrong answer or Second Chance), timers and state changes never
+ * speak the same content twice. The first announcement of a screen's content
+ * is owned by the router's onChange above; this helper speaks only when the
+ * content changes while the screen is already active (e.g. clicking NEXT
+ * loads a new question).
+ */
+let lastAnnouncedKey = null;
+function announceReadableContent(screenId, key) {
+  if (key === lastAnnouncedKey) return false;
+  lastAnnouncedKey = key;
+  const active = router.current && router.current.id === `screen-${screenId}`;
+  if (!active) return false;
+  return reader.readCurrentScreen();
+}
 
 /** Active question banks: { previous: [...], new: [...] } */
 const banks = { previous: [], new: [] };
@@ -373,6 +398,11 @@ function bootEngine(mode, questions, opts = {}) {
         $('quiz-next').classList.add('hidden');
         if (level) setText('quiz-level', `LVL ${level}`);
         updateQuizHud();
+        // AI Reader: speak the question only on in-screen question changes
+        // (screen entry is announced by the router). The key guard keeps the
+        // engine's automatic same-question retry from cutting off the spoken
+        // answer feedback.
+        announceReadableContent('quiz', `quiz:${question.id ?? question.question}`);
       },
       onTick: (remaining) => {
         const total = Math.max(1, engine.mode.secondsPerQuestion);
@@ -381,6 +411,7 @@ function bootEngine(mode, questions, opts = {}) {
         $('quiz-timer-bar').parentElement.setAttribute('aria-valuenow', String(remaining));
       },
       onCorrect: ({ reward, level, streak }) => {
+        reader.speakFeedback('correct');
         audio.playSfx('correct');
         if (quizContext.mode === 'normal') {
           applyAnswerReward(state, reward);
@@ -400,6 +431,7 @@ function bootEngine(mode, questions, opts = {}) {
         $('quiz-next').focus();
       },
       onWrong: ({ livesLeft, timedOut }) => {
+        reader.speakFeedback(timedOut ? 'timeout' : 'wrong');
         audio.playSfx('wrong');
         if (quizContext.mode === 'normal') state.recordAnswer(questioner, quizContext.subject, false);
         setQuizFeedback(
@@ -410,6 +442,10 @@ function bootEngine(mode, questions, opts = {}) {
         updateQuizHud();
       },
       onSecondChance: () => {
+        // The attempted answer was wrong, so the spoken feedback is the
+        // documented wrong-answer phrase; the retry below must NOT re-speak
+        // the question over it (guarded in onQuestion).
+        reader.speakFeedback('wrong');
         notifier.toast('🔁 Second Chance used — no life lost!', { kind: 'good' });
         setQuizFeedback('🔁 Second Chance! Try this question again.', 'good');
       },
@@ -735,8 +771,10 @@ $('reviewer-start').addEventListener('click', () => {
   ui.reviewerQueue = shuffled.slice(0, GAME.REVIEWER_ROUND_SIZE);
   ui.reviewerIndex = 0;
   ui.reviewerCorrect = 0;
-  router.show('reviewer-quiz');
+  // Render BEFORE showing so the AI Reader announces this run's first
+  // question (via the router's onChange), never the previous run's leftovers.
   renderReviewerQuestion();
+  router.show('reviewer-quiz');
   audio.playMusic('game');
 });
 
@@ -754,11 +792,14 @@ function renderReviewerQuestion() {
   });
   clear($('reviewer-feedback'));
   $('reviewer-next').classList.add('hidden');
+  // AI Reader: speak the reviewer question on in-screen question changes.
+  announceReadableContent('reviewer-quiz', `reviewer:${q.id ?? q.question}`);
 }
 
 function answerReviewer(choice, btn, q) {
   const correct = choice === q.answer;
   if (correct) ui.reviewerCorrect += 1;
+  reader.speakFeedback(correct ? 'correct' : 'wrong');
   document.querySelectorAll('#reviewer-choices .choice-btn').forEach((b) => {
     const text = b.querySelector('.choice-text').textContent;
     b.disabled = true;
@@ -877,10 +918,15 @@ function renderStoryQuestion() {
   });
   clear($('story-feedback'));
   $('story-next').classList.add('hidden');
+  // AI Reader: speak the story question on in-screen question changes. The
+  // story passage itself is announced when the story-reader screen opens
+  // (router onChange reads the marked #story-passage).
+  announceReadableContent('story-questions', `story:${storyRun.story.id}:${storyRun.index}`);
 }
 
 function answerStory(choice, btn, q) {
   const result = storyRun.answer(choice);
+  reader.speakFeedback(result.correct ? 'correct' : 'wrong');
   document.querySelectorAll('#story-choices .choice-btn').forEach((b) => {
     const text = b.querySelector('.choice-text').textContent;
     b.disabled = true;
@@ -965,11 +1011,16 @@ function renderMission() {
     onSelect: (choice, btn) => answerMission(choice, btn),
   });
   clear($('mission-feedback'));
+  // AI Reader: speak the problem brief + question on in-screen changes. The
+  // key guard keeps the wrong-answer retry (re-render of the same mission)
+  // from re-speaking the question over the spoken feedback.
+  announceReadableContent('mission', `mission:${mission.id}`);
 }
 
 function answerMission(choice, btn) {
   const mission = missionRun.current;
   const correct = choice === mission.answer;
+  reader.speakFeedback(correct ? 'correct' : 'wrong');
   document.querySelectorAll('#mission-choices .choice-btn').forEach((b) => {
     const text = b.querySelector('.choice-text').textContent;
     if (text === mission.answer) {

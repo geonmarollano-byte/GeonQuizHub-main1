@@ -24,6 +24,7 @@ import { evaluate as evaluateAchievements } from '../src/progression/achievement
 import { titleFor } from '../src/progression/titles.js';
 import { AudioManager } from '../src/audio/audioManager.js';
 import { AIReader } from '../src/accessibility/reader.js';
+import { Router } from '../src/ui/router.js';
 
 const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const bank = JSON.parse(readFileSync(path.join(root, 'questions.json'), 'utf8')).questions;
@@ -288,6 +289,17 @@ test('audio manager plays only one music track at a time', () => {
   assert.equal(played.length, 2);
 });
 
+test('router: re-showing the active screen fires no duplicate onChange', () => {
+  // Minimal fake screen elements (Router only toggles classes + scrollTop).
+  const mk = (id) => ({ id, classList: { remove() {}, add() {} }, scrollTop: 0 });
+  const events = [];
+  const router = new Router({ screens: [mk('screen-a'), mk('screen-b')], onChange: (id) => events.push(id) });
+  assert.equal(router.show('a'), true);
+  assert.equal(router.show('a'), true); // same screen: accepted but silent
+  assert.equal(router.show('b'), true);
+  assert.deepEqual(events, ['a', 'b']); // 'a' announced exactly once
+});
+
 test('AI reader is a safe no-op without speech synthesis', () => {
   const settings = new SettingsState(new GeonStorage({ backend: memoryBackend() }));
   settings.update({ reader: true });
@@ -296,9 +308,80 @@ test('AI reader is a safe no-op without speech synthesis', () => {
   assert.equal(reader.readCurrentScreen(), false);
   reader.stop(); // must not throw
   reader.refresh(); // must not throw
-  // with an injectable synth double it records utterances
+  // with an injectable synth double it records utterances - but ONLY text
+  // from elements explicitly marked data-ai-reader="true"
   const synth = { __utterances: [], cancel: () => {} };
-  const reader2 = new AIReader({ settings, synth, getActiveScreen: () => ({ innerText: 'Quiz screen' }) });
+  const fakeScreen = (markedTexts) => ({
+    matches: () => false,
+    querySelectorAll: (sel) => (sel === '[data-ai-reader="true"]'
+      ? markedTexts.map((t) => ({ innerText: t }))
+      : []),
+  });
+  const reader2 = new AIReader({ settings, synth, getActiveScreen: () => fakeScreen(['What is 2 + 2?']) });
   assert.equal(reader2.readCurrentScreen(), true);
   assert.equal(synth.__utterances.length, 1);
+  assert.equal(synth.__utterances[0].text, 'What is 2 + 2?');
+  // screens without readable content (menus, shop, profile...) stay silent
+  const reader3 = new AIReader({ settings, synth, getActiveScreen: () => fakeScreen([]) });
+  assert.equal(reader3.readCurrentScreen(), false);
+  assert.equal(synth.__utterances.length, 1);
+  // non-DOM screens cannot be scraped either
+  const reader4 = new AIReader({ settings, synth, getActiveScreen: () => ({ innerText: 'Whole screen text' }) });
+  assert.equal(reader4.readCurrentScreen(), false);
+  assert.equal(synth.__utterances.length, 1);
+});
+
+test('AI reader targeting: only data-ai-reader content is spoken, joined in DOM order', () => {
+  const settings = new SettingsState(new GeonStorage({ backend: memoryBackend() }));
+  settings.update({ reader: true });
+  const synth = { __utterances: [], cancel: () => {} };
+  const passage = { innerText: 'The creek overflowed every rainy season. ' };
+  const question = { textContent: 'Where is the story set?' };
+  // unmarked content (buttons, HUD, titles) must be ignored even when present
+  const screen = {
+    matches: () => false,
+    querySelectorAll: (sel) => (sel === '[data-ai-reader="true"]'
+      ? [passage, question]
+      : [{ innerText: 'SHOP · BUY · coins 999 · PROFILE' }]),
+  };
+  const reader = new AIReader({ settings, synth, getActiveScreen: () => screen });
+  assert.equal(reader.readCurrentScreen(), true);
+  assert.equal(synth.__utterances.length, 1);
+  assert.equal(synth.__utterances[0].text, 'The creek overflowed every rainy season. Where is the story set?');
+  // empty readable nodes are skipped, whitespace is collapsed
+  assert.equal(
+    AIReader.extractReadableText({
+      matches: () => false,
+      querySelectorAll: () => [{ innerText: '  First.  ' }, { innerText: '   ' }, { textContent: '\nSecond?\n' }],
+    }),
+    'First. Second?'
+  );
+  // a marked root element itself is readable
+  assert.equal(
+    AIReader.extractReadableText({ matches: () => true, querySelectorAll: () => [], innerText: 'Root question?' }),
+    'Root question?'
+  );
+});
+
+test('AI reader feedback: documented phrases, cancel-before-speak, no stray kinds', () => {
+  const settings = new SettingsState(new GeonStorage({ backend: memoryBackend() }));
+  settings.update({ reader: true });
+  const synth = { __utterances: [], cancels: 0, cancel() { this.cancels += 1; } };
+  const reader = new AIReader({ settings, synth, getActiveScreen: () => null });
+  assert.equal(reader.speakFeedback('correct'), true);
+  assert.equal(synth.__utterances.pop().text, 'Excellent!');
+  assert.equal(reader.speakFeedback('wrong'), true);
+  assert.equal(synth.__utterances.pop().text, 'Incorrect.');
+  assert.equal(reader.speakFeedback('timeout'), true);
+  assert.equal(synth.__utterances.pop().text, "Time's up.");
+  assert.equal(reader.speakFeedback('victory'), false); // unknown kind is a no-op
+  assert.equal(synth.__utterances.length, 0);
+  // every speak cancels the previous utterance first (no overlapping speech)
+  reader.speakFeedback('correct');
+  reader.speakFeedback('wrong');
+  assert.equal(synth.cancels >= 2, true);
+  assert.equal(synth.__utterances.length, 2);
+  // disabled reader never speaks
+  settings.update({ reader: false });
+  assert.equal(reader.speakFeedback('correct'), false);
 });

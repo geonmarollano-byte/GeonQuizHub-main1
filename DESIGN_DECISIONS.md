@@ -98,6 +98,30 @@ the UI formats names, scores and percentages.
 of the Playwright path in `tests/browser_smoke.py`. They are generated when
 Playwright is installed rather than shipped as stale binaries.
 
+## 12. AI Reader targeting contract
+
+The AI Reader never scrapes visible screens (the original implementation read
+all visible text/UI on every screen change, which was a defect). It speaks
+**only** content that is explicitly targeted:
+
+- Elements marked `data-ai-reader="true"` — the quiz question (Normal + Daily,
+  every level), the Reviewer question, the story passage + story question, and
+  the mission/problem brief + question. Choices, menus, buttons, HUD, Shop,
+  Inventory, Profile, Settings, points/coins, titles, achievements and results
+  screens are never spoken.
+- Fixed feedback phrases (spoken, not read from the DOM): correct →
+  "Excellent!", wrong → "Incorrect.", time-up → "Time's up.".
+
+Mechanics: every screen change cancels speech in flight
+(`speechSynthesis.cancel()`), then speaks only the new screen's targeted
+content. In-screen question changes (NEXT) speak through a duplicate-key
+guard so re-renders, the engine's automatic same-question retry after a wrong
+answer/Second Chance/time-up, timers and state changes can never re-speak
+content or overlap the spoken feedback. The HUD 🔊 button and the Settings
+toggle are preserved and speak (or stay silent) under the same contract.
+`Router.show()` is idempotent for the already-active screen so double
+navigation (the Mission entry) cannot fire the announcement twice.
+
 ## 12. Audio assets
 
 The original MP3s were among the unreadable archive entries. The seven
