@@ -1,0 +1,17 @@
+{
+  "name": "geons-gamehub",
+  "version": "1.0.0",
+  "description": "Geon's GameHub - browser-based educational quiz/game platform (5 subjects, 80-level paths, Previous/New questioners, Reviewer/Daily/Story/Mission modes).",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "test": "node --test tests/",
+    "static-check": "python3 tests/static_check.py",
+    "browser-smoke": "python3 tests/browser_smoke.py",
+    "smoke:dom": "node tests/jsdom_smoke.mjs"
+  },
+  "license": "UNLICENSED",
+  "devDependencies": {
+    "jsdom": "^29.1.1"
+  }
+}

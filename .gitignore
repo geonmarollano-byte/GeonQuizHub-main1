@@ -1,0 +1,4 @@
+node_modules/
+package-lock.json
+tests/smoke-*.png
+.DS_Store

@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="original">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>GEON'S GAMEHUB</title>
+  <meta name="description" content="Geon's GameHub - a browser-based educational quiz and game platform." />
+  <meta name="theme-color" content="#4c1d95" />
+  <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <a class="skip-link" href="#main-content">Skip to content</a>
+
+  <!-- Persistent top HUD (visible on most screens) -->
+  <header id="hud" class="hud" aria-label="Player stats">
+    <button id="hud-menu-btn" class="hud-icon" type="button" aria-label="Open menu">☰</button>
+    <div class="hud-title" aria-hidden="true">GEON'S GAMEHUB</div>
+    <div class="hud-stats">
+      <span class="hud-stat" title="Coins">🪙 <b id="hud-coins">0</b></span>
+      <span class="hud-stat" title="Points">🎯 <b id="hud-points">0</b></span>
+      <button id="hud-reader-btn" class="hud-icon" type="button" aria-label="AI Reader: read this screen">🔊</button>
+    </div>
+  </header>
+
+  <main id="main-content" class="app">
+
+    <!-- INTRO -->
+    <section id="screen-intro" class="screen active" aria-label="Intro">
+      <div class="intro-wrap">
+        <div class="logo-big" aria-hidden="true">🎮</div>
+        <h1 class="game-title">GEON'S <span>GAMEHUB</span></h1>
+        <p class="tagline">Learn. Play. Level up.</p>
+        <button id="intro-enter" class="btn btn-primary btn-lg" type="button">ENTER</button>
+      </div>
+    </section>
+
+    <!-- MOTTO -->
+    <section id="screen-motto" class="screen" aria-label="Motto">
+      <div class="motto-wrap">
+        <p class="motto-text">“Knowledge is the game.<br />Every question is a level.<br />Never stop playing.”</p>
+        <p class="motto-credit">— Geon's GameHub Motto</p>
+        <button id="motto-continue" class="btn btn-primary btn-lg" type="button">CONTINUE</button>
+      </div>
+    </section>
+
+    <!-- HOME -->
+    <section id="screen-home" class="screen" aria-label="Home">
+      <div class="home-hero">
+        <div class="hero-avatar" id="home-avatar" aria-hidden="true">🦁</div>
+        <div class="hero-info">
+          <div class="hero-name" id="home-name">Player</div>
+          <div class="hero-title" id="home-title">🌱 NOVICE</div>
+          <div class="hero-questioner">Questioner: <b id="home-questioner">PREVIOUS</b></div>
+        </div>
+      </div>
+      <div class="home-grid">
+        <button class="tile tile-play" data-nav="subjects" type="button"><span class="tile-icon">▶️</span><span class="tile-label">NORMAL QUIZ</span><span class="tile-sub">5 subjects · 80 levels</span></button>
+        <button class="tile" data-nav="reviewer" type="button"><span class="tile-icon">📖</span><span class="tile-label">REVIEWER MODE</span><span class="tile-sub">Practice with explanations</span></button>
+        <button class="tile" data-nav="daily" type="button"><span class="tile-icon">📅</span><span class="tile-label">DAILY CHALLENGE</span><span class="tile-sub">10 questions every day</span></button>
+        <button class="tile" data-nav="story-select" type="button"><span class="tile-icon">📚</span><span class="tile-label">STORY QUIZ</span><span class="tile-sub">10 stories</span></button>
+        <button class="tile" data-nav="mission" type="button"><span class="tile-icon">🚀</span><span class="tile-label">START YOUR MISSION</span><span class="tile-sub">5 missions</span></button>
+        <button class="tile" data-nav="shop" type="button"><span class="tile-icon">🛒</span><span class="tile-label">SHOP</span><span class="tile-sub">Buy usable items</span></button>
+        <button class="tile" data-nav="inventory" type="button"><span class="tile-icon">🎒</span><span class="tile-label">INVENTORY</span><span class="tile-sub">Your items</span></button>
+        <button class="tile" data-nav="profile" type="button"><span class="tile-icon">👤</span><span class="tile-label">PROFILE</span><span class="tile-sub">Stats &amp; code</span></button>
+        <button class="tile" data-nav="convert" type="button"><span class="tile-icon">💱</span><span class="tile-label">POINTS → COINS</span><span class="tile-sub">Convert your points</span></button>
+        <button class="tile" data-nav="leaderboards" type="button"><span class="tile-icon">🏅</span><span class="tile-label">LEADERBOARDS</span><span class="tile-sub">Best scores</span></button>
+        <button class="tile" data-nav="titles" type="button"><span class="tile-icon">👑</span><span class="tile-label">TITLES</span><span class="tile-sub">Your rank</span></button>
+        <button class="tile" data-nav="achievements" type="button"><span class="tile-icon">🏆</span><span class="tile-label">ACHIEVEMENTS</span><span class="tile-sub">Badges earned</span></button>
+        <button class="tile" data-nav="menu" type="button"><span class="tile-icon">⚙️</span><span class="tile-label">MENU</span><span class="tile-sub">Settings, save, info</span></button>
+      </div>
+    </section>
+
+    <!-- SUBJECT SELECTION -->
+    <section id="screen-subjects" class="screen" aria-label="Subject selection">
+      <div class="screen-head"><button class="btn-back" data-back type="button" aria-label="Back">←</button><h2>SELECT SUBJECT</h2></div>
+      <div id="subject-list" class="subject-list"></div>
+      <div class="screen-head sub"><h3>QUIZ TYPE</h3></div>
+      <div class="quiz-type-row">
+        <button id="quiz-type-1" class="btn btn-chip is-selected" type="button">SUBJECT 1</button>
+        <button id="quiz-type-2" class="btn btn-chip" type="button">SUBJECT 2</button>
+      </div>
+      <button id="subjects-continue" class="btn btn-primary btn-lg" type="button" disabled>CHOOSE LEVELS →</button>
+    </section>
+
+    <!-- LEVEL SELECTION -->
+    <section id="screen-levels" class="screen" aria-label="Level selection">
+      <div class="screen-head"><button class="btn-back" data-back type="button" aria-label="Back">←</button><h2 id="levels-title">LEVELS</h2></div>
+      <p class="levels-hint" id="levels-hint">Clear a level to unlock the next. Reaching Level 80 wins the path!</p>
+      <div id="level-grid" class="level-grid" role="list"></div>
+    </section>
+
+    <!-- QUIZ -->
+    <section id="screen-quiz" class="screen" aria-label="Quiz">
+      <div class="quiz-top">
+        <button id="quiz-quit" class="btn-back" type="button" aria-label="Quit quiz">←</button>
+        <div class="quiz-lives" id="quiz-lives" aria-label="Lives remaining"></div>
+        <div class="quiz-level" id="quiz-level">LVL 1</div>
+      </div>
+      <div class="timer-track" role="progressbar" aria-label="Question timer"><div id="quiz-timer-bar" class="timer-bar"></div></div>
+      <div class="quiz-scores">
+        <span>⭐ <b id="quiz-score">0</b></span>
+        <span>🔥 <b id="quiz-streak">0</b></span>
+        <span id="quiz-mode-tag" class="quiz-mode-tag"></span>
+      </div>
+      <div id="quiz-question" class="quiz-question" aria-live="polite"></div>
+      <div id="quiz-choices" class="choice-list"></div>
+      <div id="quiz-feedback" class="quiz-feedback" aria-live="assertive"></div>
+      <div class="item-bar" id="quiz-items">
+        <button class="item-btn" data-item="hint" type="button">💡 Hint <b data-count="hint">0</b></button>
+        <button class="item-btn" data-item="fifty_fifty" type="button">✂️ 50/50 <b data-count="fifty_fifty">0</b></button>
+        <button class="item-btn" data-item="time_boost" type="button">⏱️ +10s <b data-count="time_boost">0</b></button>
+        <button class="item-btn" data-item="life_token" type="button">❤️ Life <b data-count="life_token">0</b></button>
+        <button class="item-btn" data-item="second_chance" type="button">🔁 2nd Chance <b data-count="second_chance">0</b></button>
+      </div>
+      <button id="quiz-next" class="btn btn-primary btn-lg hidden" type="button">NEXT →</button>
+    </section>
+
+    <!-- DAILY CHALLENGE -->
+    <section id="screen-daily" class="screen" aria-label="Daily Challenge">
+      <div class="screen-head"><button class="btn-back" data-back type="button" aria-label="Back">←</button><h2>DAILY CHALLENGE</h2></div>
+      <div class="daily-card">
+        <div class="daily-date" id="daily-date"></div>
+        <p class="daily-desc">10 questions · 8 lives · 30 seconds each.<br />Complete it once a day for <b>+100 points</b> and <b>+5 coins</b>.</p>
+        <div class="daily-status" id="daily-status"></div>
+        <button id="daily-start" class="btn btn-primary btn-lg" type="button">START TODAY'S CHALLENGE</button>
+      </div>
+    </section>
+
+    <section id="screen-daily-results" class="screen" aria-label="Daily results">
+      <div class="screen-head"><h2>DAILY RESULTS</h2></div>
+      <div id="daily-results-body" class="results-body"></div>
+      <button class="btn btn-primary btn-lg" data-nav="home" type="button">BACK HOME</button>
+    </section>
+
+    <!-- REVIEWER -->
+    <section id="screen-reviewer" class="screen" aria-label="Reviewer mode setup">
+      <div class="screen-head"><button class="btn-back" data-back type="button" aria-label="Back">←</button><h2>REVIEWER MODE</h2></div>
+      <p class="hint-text">Practice without lives or timers. Explanations after every answer.</p>
+      <h3>Subject</h3>
+      <div id="reviewer-subjects" class="chip-row"></div>
+      <h3>Questioner</h3>
+      <div class="chip-row">
+        <button class="btn btn-chip is-selected" data-rq="previous" type="button">PREVIOUS</button>
+        <button class="btn btn-chip" data-rq="new" type="button">NEW</button>
+      </div>
+      <h3>Filter (topic)</h3>
+      <div id="reviewer-topics" class="chip-row"></div>
+      <button id="reviewer-start" class="btn btn-primary btn-lg" type="button">START REVIEW</button>
+    </section>
+
+    <section id="screen-reviewer-quiz" class="screen" aria-label="Reviewer quiz">
+      <div class="quiz-top">
+        <button id="reviewer-quit" class="btn-back" type="button" aria-label="Quit review">←</button>
+        <div class="quiz-level" id="reviewer-progress">1 / 10</div>
+      </div>
+      <div id="reviewer-question" class="quiz-question" aria-live="polite"></div>
+      <div id="reviewer-choices" class="choice-list"></div>
+      <div id="reviewer-feedback" class="quiz-feedback" aria-live="assertive"></div>
+      <button id="reviewer-next" class="btn btn-primary btn-lg hidden" type="button">NEXT →</button>
+    </section>
+
+    <section id="screen-reviewer-results" class="screen" aria-label="Reviewer results">
+      <div class="screen-head"><h2>REVIEW RESULTS</h2></div>
+      <div id="reviewer-results-body" class="results-body"></div>
+      <div class="btn-row">
+        <button id="reviewer-again" class="btn btn-primary" type="button">REVIEW AGAIN</button>
+        <button class="btn btn-ghost" data-nav="home" type="button">HOME</button>
+      </div>
+    </section>
+
+    <!-- STORY -->
+    <section id="screen-story-select" class="screen" aria-label="Story library">
+      <div class="screen-head"><button class="btn-back" data-back type="button" aria-label="Back">←</button><h2>STORY QUIZ</h2></div>
+      <p class="hint-text">Read a story, then answer 5 questions. Rewards: +75 pts / +15 🪙 per story, bonuses for perfect and all-stories runs.</p>
+      <div id="story-list" class="story-list"></div>
+    </section>
+
+    <section id="screen-story-reader" class="screen" aria-label="Story reader">
+      <div class="screen-head"><button class="btn-back" data-back type="button" aria-label="Back">←</button><h2 id="story-reader-title">Story</h2></div>
+      <div id="story-passage" class="story-passage"></div>
+      <button id="story-start-questions" class="btn btn-primary btn-lg" type="button">START QUESTIONS →</button>
+    </section>
+
+    <section id="screen-story-questions" class="screen" aria-label="Story questions">
+      <div class="quiz-top">
+        <div class="quiz-level" id="story-progress">1 / 5</div>
+        <div class="quiz-mode-tag" id="story-qtype"></div>
+      </div>
+      <div id="story-question" class="quiz-question" aria-live="polite"></div>
+      <div id="story-choices" class="choice-list"></div>
+      <div id="story-feedback" class="quiz-feedback" aria-live="assertive"></div>
+      <button id="story-next" class="btn btn-primary btn-lg hidden" type="button">NEXT →</button>
+    </section>
+
+    <section id="screen-story-results" class="screen" aria-label="Story results">
+      <div class="screen-head"><h2>STORY RESULTS</h2></div>
+      <div id="story-results-body" class="results-body"></div>
+      <div class="btn-row">
+        <button class="btn btn-primary" data-nav="story-select" type="button">MORE STORIES</button>
+        <button class="btn btn-ghost" data-nav="home" type="button">HOME</button>
+      </div>
+    </section>
+
+    <!-- MISSION -->
+    <section id="screen-mission" class="screen" aria-label="Mission">
+      <div class="screen-head"><button class="btn-back" data-back type="button" aria-label="Back">←</button><h2>START YOUR MISSION</h2></div>
+      <div class="mission-card">
+        <div class="mission-step" id="mission-step">MISSION 1 OF 5</div>
+        <div class="mission-name" id="mission-name"></div>
+        <div class="mission-subject" id="mission-subject"></div>
+        <p class="mission-brief" id="mission-brief"></p>
+        <div id="mission-question" class="quiz-question" aria-live="polite"></div>
+        <div id="mission-choices" class="choice-list"></div>
+        <div id="mission-feedback" class="quiz-feedback" aria-live="assertive"></div>
+      </div>
+    </section>
+
+    <section id="screen-mission-results" class="screen" aria-label="Mission results">
+      <div class="screen-head"><h2>MISSION RESULTS</h2></div>
+      <div id="mission-results-body" class="results-body"></div>
+      <div class="btn-row">
+        <button id="mission-again" class="btn btn-primary" type="button">RUN MISSIONS AGAIN</button>
+        <button class="btn btn-ghost" data-nav="home" type="button">HOME</button>
+      </div>
+    </section>
+
+    <!-- PROFILE -->
+    <section id="screen-profile" class="screen" aria-label="Profile">
+      <div class="screen-head"><button class="btn-back" data-back type="button" aria-label="Back">←</button><h2>PROFILE</h2></div>
+      <div class="profile-card">
+        <div class="profile-avatar" id="profile-avatar">🦁</div>
+        <div class="profile-name" id="profile-name">Player</div>
+        <div class="profile-code" id="profile-code">GEON-0001</div>
+        <div class="profile-title" id="profile-title"></div>
+      </div>
+      <div id="profile-stats" class="stat-list"></div>
+      <div class="btn-row">
+        <button id="profile-open-code" class="btn btn-primary" type="button">CODE PANEL</button>
+      </div>
+    </section>
+
+    <!-- CODE PANEL -->
+    <section id="screen-code" class="screen" aria-label="Code panel">
+      <div class="screen-head"><button class="btn-back" data-back type="button" aria-label="Back">←</button><h2>CODE PANEL</h2></div>
+      <div class="form-card">
+        <label class="field"><span>Player name</span><input id="code-name" type="text" maxlength="24" autocomplete="off" /></label>
+        <label class="field"><span>Player code</span><input id="code-code" type="text" maxlength="16" autocomplete="off" /></label>
+        <label class="field"><span>Avatar</span>
+          <select id="code-avatar">
+            <option value="🦁">🦁 Lion</option><option value="🐯">🐯 Tiger</option><option value="🦅">🦅 Eagle</option>
+            <option value="🐬">🐬 Dolphin</option><option value="🚀">🚀 Rocket</option><option value="🤖">🤖 Robot</option>
+            <option value="🧙">🧙 Wizard</option><option value="🥷">🥷 Ninja</option>
+          </select>
+        </label>
+        <button id="code-save" class="btn btn-primary" type="button">SAVE</button>
+      </div>
+    </section>
+
+    <!-- POINTS CONVERSION -->
+    <section id="screen-convert" class="screen" aria-label="Points conversion">
+      <div class="screen-head"><button class="btn-back" data-back type="button" aria-label="Back">←</button><h2>POINTS → COINS</h2></div>
+      <div class="convert-card">
+        <p class="convert-rate">Rate: <b>10 points = 5 coins</b></p>
+        <p class="convert-balance">You have <b id="convert-points">0</b> 🎯 points and <b id="convert-coins">0</b> 🪙 coins.</p>
+        <label class="field"><span>Blocks to convert (1 block = 10 pts → 5 🪙)</span>
+          <input id="convert-amount" type="number" min="0" max="1000" value="1" />
+        </label>
+        <p class="convert-preview" id="convert-preview">Preview: 10 points → 5 coins</p>
+        <button id="convert-confirm" class="btn btn-primary btn-lg" type="button">CONFIRM CONVERSION</button>
+      </div>
+    </section>
+
+    <!-- SHOP -->
+    <section id="screen-shop" class="screen" aria-label="Shop">
+      <div class="screen-head"><button class="btn-back" data-back type="button" aria-label="Back">←</button><h2>SHOP</h2></div>
+      <p class="hint-text">Buy usable items with coins. Use them during quizzes.</p>
+      <div id="shop-list" class="shop-list"></div>
+    </section>
+
+    <!-- INVENTORY -->
+    <section id="screen-inventory" class="screen" aria-label="Inventory">
+      <div class="screen-head"><button class="btn-back" data-back type="button" aria-label="Back">←</button><h2>INVENTORY</h2></div>
+      <div id="inventory-list" class="shop-list"></div>
+    </section>
+
+    <!-- MENU -->
+    <section id="screen-menu" class="screen" aria-label="Menu">
+      <div class="screen-head"><button class="btn-back" data-back type="button" aria-label="Back">←</button><h2>MENU</h2></div>
+      <div class="menu-list">
+        <button class="menu-item" data-nav="settings" type="button">⚙️ Settings</button>
+        <button class="menu-item" id="menu-export" type="button">📤 Export save</button>
+        <button class="menu-item" id="menu-import" type="button">📥 Import save</button>
+        <button class="menu-item" id="menu-backup" type="button">💾 Create backup</button>
+        <button class="menu-item" id="menu-reset" type="button">🗑️ Reset game data</button>
+        <button class="menu-item" data-nav="info" type="button">ℹ️ Info &amp; how to play</button>
+      </div>
+      <input id="import-file" type="file" accept=".json,application/json" class="hidden" />
+    </section>
+
+    <!-- SETTINGS -->
+    <section id="screen-settings" class="screen" aria-label="Settings">
+      <div class="screen-head"><button class="btn-back" data-back type="button" aria-label="Back">←</button><h2>SETTINGS</h2></div>
+      <div class="settings-list">
+        <label class="setting-row"><span>🎵 Music</span><input id="set-music" type="checkbox" /></label>
+        <label class="setting-row"><span>🔔 Sound</span><input id="set-sound" type="checkbox" /></label>
+        <label class="setting-row"><span>🔊 AI Reader</span><input id="set-reader" type="checkbox" /></label>
+        <div class="setting-row"><span>📚 Questioner</span>
+          <div class="chip-row tight">
+            <button class="btn btn-chip" data-questioner="previous" type="button">PREVIOUS</button>
+            <button class="btn btn-chip" data-questioner="new" type="button">NEW</button>
+          </div>
+        </div>
+        <div class="setting-row"><span>🎨 Theme</span>
+          <div class="chip-row tight">
+            <button class="btn btn-chip" data-theme-set="original" type="button">ORIGINAL</button>
+            <button class="btn btn-chip" data-theme-set="light" type="button">LIGHT</button>
+            <button class="btn btn-chip" data-theme-set="dark" type="button">DARK</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- INFO -->
+    <section id="screen-info" class="screen" aria-label="Info">
+      <div class="screen-head"><button class="btn-back" data-back type="button" aria-label="Back">←</button><h2>INFO &amp; HOW TO PLAY</h2></div>
+      <div class="info-body">
+        <h3>Normal Quiz</h3>
+        <p>Pick a subject and quiz type (SUBJECT 1 / SUBJECT 2). Each path has 80 levels. You start with <b>8 lives</b> and have <b>30 seconds</b> per question. Correct answers earn score, coins and points; wrong answers cost a life. Reach Level 80 to win the path. Hitting 0 lives resets that path to Level 1.</p>
+        <h3>Streaks</h3>
+        <p>Consecutive correct answers raise your score multiplier up to ×3 and trigger milestone bonuses at 3, 5, 10, 15 and 20.</p>
+        <h3>Other modes</h3>
+        <p><b>Reviewer</b> — practice by subject, questioner and topic filter with explanations. <b>Daily Challenge</b> — the same 10 questions for everyone each day; finish for +100 pts / +5 🪙. <b>Story Quiz</b> — read 10 stories and answer comprehension questions. <b>Missions</b> — 5 mission scenarios; +100 pts / +20 🪙 each, plus a bonus for all five.</p>
+        <h3>Economy</h3>
+        <p>Earn coins and points as you play. Convert points to coins (10 pts = 5 🪙). Spend coins in the Shop on Hint, 50/50, Time Boost, Life Token and Second Chance.</p>
+        <h3>Saves</h3>
+        <p>Your progress saves automatically in this browser. Use Menu → Export/Import to move saves between devices. Previous and New questioner progress are stored separately.</p>
+      </div>
+    </section>
+
+    <!-- LEADERBOARDS -->
+    <section id="screen-leaderboards" class="screen" aria-label="Leaderboards">
+      <div class="screen-head"><button class="btn-back" data-back type="button" aria-label="Back">←</button><h2>LEADERBOARDS</h2></div>
+      <div id="leaderboard-body" class="stat-list"></div>
+    </section>
+
+    <!-- TITLES -->
+    <section id="screen-titles" class="screen" aria-label="Titles">
+      <div class="screen-head"><button class="btn-back" data-back type="button" aria-label="Back">←</button><h2>TITLES</h2></div>
+      <div id="titles-body" class="stat-list"></div>
+    </section>
+
+    <!-- ACHIEVEMENTS -->
+    <section id="screen-achievements" class="screen" aria-label="Achievements">
+      <div class="screen-head"><button class="btn-back" data-back type="button" aria-label="Back">←</button><h2>ACHIEVEMENTS</h2></div>
+      <div id="achievements-body" class="achv-grid"></div>
+    </section>
+
+    <!-- GAME OVER -->
+    <section id="screen-gameover" class="screen" aria-label="Game over">
+      <div class="endgame-card over">
+        <div class="endgame-icon">💀</div>
+        <h2>GAME OVER</h2>
+        <p id="gameover-text">You ran out of lives. This path resets to Level 1 — try again!</p>
+        <div id="gameover-stats" class="results-body"></div>
+        <div class="btn-row">
+          <button id="gameover-retry" class="btn btn-primary" type="button">TRY AGAIN</button>
+          <button class="btn btn-ghost" data-nav="home" type="button">HOME</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- VICTORY -->
+    <section id="screen-victory" class="screen" aria-label="Victory">
+      <div class="endgame-card win">
+        <div class="endgame-icon">🏆</div>
+        <h2 id="victory-title">VICTORY!</h2>
+        <p id="victory-text">You conquered all 80 levels of this path!</p>
+        <div id="victory-stats" class="results-body"></div>
+        <div class="btn-row">
+          <button class="btn btn-primary" data-nav="home" type="button">HOME</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- COMING SOON -->
+    <section id="screen-coming-soon" class="screen" aria-label="Coming soon">
+      <div class="endgame-card">
+        <div class="endgame-icon">🚧</div>
+        <h2>COMING SOON</h2>
+        <p>This feature is still in development.</p>
+        <button class="btn btn-primary" data-nav="home" type="button">HOME</button>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Persistent overlays -->
+  <div id="toasts" class="toast-wrap" aria-live="polite"></div>
+  <div id="overlay" class="overlay" aria-live="assertive"></div>
+  <div id="sr-status" class="sr-only" role="status" aria-live="polite"></div>
+
+  <script src="questions.embedded.js"></script>
+  <script src="questions.new.embedded.js"></script>
+  <script type="module" src="script.js"></script>
+</body>
+</html>
