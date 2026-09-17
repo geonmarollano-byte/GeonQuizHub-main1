@@ -104,11 +104,14 @@ The AI Reader never scrapes visible screens (the original implementation read
 all visible text/UI on every screen change, which was a defect). It speaks
 **only** content that is explicitly targeted:
 
-- Elements marked `data-ai-reader="true"` — the quiz question (Normal + Daily,
-  every level), the Reviewer question, the story passage + story question, and
-  the mission/problem brief + question. Choices, menus, buttons, HUD, Shop,
-  Inventory, Profile, Settings, points/coins, titles, achievements and results
-  screens are never spoken.
+- The active content string handed to it by the renderers — the quiz question
+  (Normal + Daily, every level, taken directly from the engine's question
+  data in the `onQuestion` hook), the Reviewer question, the story passage +
+  story question, and the mission/problem brief + question. For screen entry
+  the router reads the same text from elements marked
+  `data-ai-reader="true"`. Choices, menus, buttons, HUD, Shop, Inventory,
+  Profile, Settings, points/coins, titles, achievements and results screens
+  are never spoken.
 - Fixed feedback phrases (spoken, not read from the DOM): correct →
   "Excellent!", wrong → "Incorrect.", time-up → "Time's up.".
 
@@ -121,6 +124,20 @@ content or overlap the spoken feedback. The HUD 🔊 button and the Settings
 toggle are preserved and speak (or stay silent) under the same contract.
 `Router.show()` is idempotent for the already-active screen so double
 navigation (the Mission entry) cannot fire the announcement twice.
+
+Real-browser hardening (speech drop-race fix): browsers are documented to
+silently drop an utterance spoken synchronously right after
+`speechSynthesis.cancel()` — which is precisely the game's cancel-first
+policy and made the normal-quiz question inaudible on affected engines even
+though every test double recorded it. Every `speak()` is therefore
+generation-stamped (stop()/newer speech invalidates stale work so an old
+question can never follow a new one), preceded by `resume()` where available
+(paused Android queues), and guarded by a one-shot watchdog that re-speaks
+only when the utterance provably never started and the queue is idle
+(`tests/jsdom_racy_synth.mjs` boots the real game against a synth double
+reproducing the drop race). A 10 s resume ping keeps long story passages
+from stalling. All of it engages only with a native speech implementation;
+the synchronous test doubles keep deterministic behavior.
 
 ## 12. Audio assets
 

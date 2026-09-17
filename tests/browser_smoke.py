@@ -83,16 +83,19 @@ def node_module_smoke():
 
 def jsdom_smoke():
     """Real DOM smoke: boots script.js + index.html in jsdom and clicks through
-    the game. Optional - requires `npm install jsdom` in the project root."""
-    script = os.path.join(ROOT, "tests", "jsdom_smoke.mjs")
+    the game; a second pass runs the AI Reader against a hostile synth double
+    that reproduces the browser cancel()->speak() drop bug. Optional - requires
+    `npm install jsdom` in the project root."""
     if not os.path.isdir(os.path.join(ROOT, "node_modules", "jsdom")):
         print("  jsdom: not installed - skipping DOM smoke (npm install jsdom to enable)")
         return
-    proc = subprocess.run(["node", script], capture_output=True, text=True, cwd=ROOT)
-    if proc.returncode != 0:
-        failures.append(f"jsdom DOM smoke failed:\n{proc.stdout[-1500:]}\n{proc.stderr[-1500:]}")
-    else:
-        print(f"  jsdom: {proc.stdout.strip().splitlines()[-1] if proc.stdout.strip() else 'OK'}")
+    for name in ("jsdom_smoke.mjs", "jsdom_racy_synth.mjs"):
+        script = os.path.join(ROOT, "tests", name)
+        proc = subprocess.run(["node", script], capture_output=True, text=True, cwd=ROOT)
+        if proc.returncode != 0:
+            failures.append(f"jsdom {name} failed:\n{proc.stdout[-1500:]}\n{proc.stderr[-1500:]}")
+        else:
+            print(f"  jsdom {name}: {proc.stdout.strip().splitlines()[-1] if proc.stdout.strip() else 'OK'}")
 
 
 def playwright_flow():

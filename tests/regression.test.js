@@ -385,3 +385,165 @@ test('AI reader feedback: documented phrases, cancel-before-speak, no stray kind
   settings.update({ reader: false });
   assert.equal(reader.speakFeedback('correct'), false);
 });
+
+// ---------------------------------------------------------------------------
+// AI Reader real-browser hardening: cancel()->speak() drop recovery,
+// generation invalidation, stop() discarding pending retries, resume().
+// These use a fake "native" synth (getVoices + speaking/pending states +
+// utterance events) with a tiny retry delay so the async watchdog runs fast.
+// ---------------------------------------------------------------------------
+
+function nativeSynthBase() {
+  return {
+    spoken: [],
+    cancels: 0,
+    resumes: 0,
+    speaking: false,
+    pending: false,
+    getVoices: () => [{ name: 'test voice' }],
+    cancel() { this.cancels += 1; },
+    resume() { this.resumes += 1; },
+    speak(utter) { this.spoken.push(utter.text); },
+  };
+}
+
+function installUtteranceClass() {
+  const Utter = class SpeechSynthesisUtterance {
+    constructor(text) { this.text = text == null ? '' : String(text); }
+  };
+  globalThis.SpeechSynthesisUtterance = Utter;
+  return () => { delete globalThis.SpeechSynthesisUtterance; };
+}
+
+test('AI reader watchdog: re-speaks an utterance the browser dropped after cancel()', async () => {
+  const restore = installUtteranceClass();
+  try {
+    const settings = new SettingsState(new GeonStorage({ backend: memoryBackend() }));
+    settings.update({ reader: true });
+    const synth = nativeSynthBase();
+    let droppedOnce = false;
+    synth.speak = (utter) => {
+      synth.spoken.push(utter.text);
+      // Model the Chrome/Firefox bug: the utterance spoken synchronously
+      // after cancel() silently never starts (no onstart/onend/onerror).
+      if (!droppedOnce) {
+        droppedOnce = true;
+        return;
+      }
+      synth.speaking = true;
+      setTimeout(() => {
+        if (utter.onstart) utter.onstart();
+        synth.speaking = false;
+        if (utter.onend) utter.onend();
+      }, 2);
+    };
+    const reader = new AIReader({ settings, synth, getActiveScreen: () => null, retryDelayMs: 5 });
+    assert.equal(reader.speak('What is 3 x 10?'), true);
+    assert.equal(synth.spoken.length, 1);
+    await new Promise((r) => setTimeout(r, 60));
+    // the guarded re-speak recovered the dropped question - exactly once
+    assert.equal(synth.spoken.length, 2);
+    assert.equal(synth.spoken[1], 'What is 3 x 10?');
+    assert.equal(reader.lastSpoken, 'What is 3 x 10?');
+    assert.equal(synth.cancels >= 2, true, 'each speak attempt cancels first');
+    assert.equal(synth.resumes >= 1, true, 'paused queues are resumed');
+  } finally {
+    restore();
+  }
+});
+
+test('AI reader watchdog: no duplicate speech when the utterance actually starts', async () => {
+  const restore = installUtteranceClass();
+  try {
+    const settings = new SettingsState(new GeonStorage({ backend: memoryBackend() }));
+    settings.update({ reader: true });
+    const synth = nativeSynthBase();
+    synth.speak = (utter) => {
+      synth.spoken.push(utter.text);
+      synth.speaking = true;
+      setTimeout(() => {
+        if (utter.onstart) utter.onstart();
+        synth.speaking = false;
+        if (utter.onend) utter.onend();
+      }, 2);
+    };
+    const reader = new AIReader({ settings, synth, getActiveScreen: () => null, retryDelayMs: 5 });
+    assert.equal(reader.speak('A question that starts speaking normally?'), true);
+    await new Promise((r) => setTimeout(r, 60));
+    assert.equal(synth.spoken.length, 1, 'started utterances are never re-spoken');
+  } finally {
+    restore();
+  }
+});
+
+test('AI reader: a newer speak invalidates the previous watchdog (no stale speech)', async () => {
+  const restore = installUtteranceClass();
+  try {
+    const settings = new SettingsState(new GeonStorage({ backend: memoryBackend() }));
+    settings.update({ reader: true });
+    const synth = nativeSynthBase();
+    // every utterance here is "still starting" - never fires events, never
+    // marks the queue busy, so only watchdog generations decide the outcome
+    const reader = new AIReader({ settings, synth, getActiveScreen: () => null, retryDelayMs: 5 });
+    assert.equal(reader.speak('OLD question - should never be retried'), true);
+    assert.equal(reader.speak('NEW question'), true);
+    await new Promise((r) => setTimeout(r, 60));
+    const oldRetries = synth.spoken.filter((t) => t === 'OLD question - should never be retried').length;
+    const newSpoken = synth.spoken.filter((t) => t === 'NEW question').length;
+    assert.equal(oldRetries, 1, 'old question must not be re-spoken after a newer one loaded');
+    assert.equal(newSpoken, 2, 'new question keeps its own guarded retry');
+  } finally {
+    restore();
+  }
+});
+
+test('AI reader stop(): discards pending retries and cancels speech', async () => {
+  const restore = installUtteranceClass();
+  try {
+    const settings = new SettingsState(new GeonStorage({ backend: memoryBackend() }));
+    settings.update({ reader: true });
+    const synth = nativeSynthBase();
+    const reader = new AIReader({ settings, synth, getActiveScreen: () => null, retryDelayMs: 5 });
+    assert.equal(reader.speak('Canceled by screen change'), true);
+    reader.stop();
+    await new Promise((r) => setTimeout(r, 60));
+    assert.equal(synth.spoken.length, 1, 'nothing re-spoken after stop()');
+    assert.equal(synth.cancels >= 2, true, 'stop() cancels the synth');
+  } finally {
+    restore();
+  }
+});
+
+test('AI reader speakActiveContent: speaks supplied game data; UI never leaks', () => {
+  const settings = new SettingsState(new GeonStorage({ backend: memoryBackend() }));
+  settings.update({ reader: true });
+  const synth = { __utterances: [], cancel: () => {} };
+  const fakeScreen = {
+    matches: () => false,
+    querySelectorAll: (sel) => (sel === '[data-ai-reader="true"]' ? [] : [{ innerText: 'SHOP · BUY · 999 coins · PROFILE' }]),
+  };
+  const reader = new AIReader({ settings, synth, getActiveScreen: () => fakeScreen });
+  // the caller passes the active question directly - the marked/unmarked DOM
+  // is irrelevant and screen UI can never leak into speech
+  assert.equal(reader.speakActiveContent('  What is 9 x 3?  '), true);
+  assert.equal(synth.__utterances.length, 1);
+  assert.equal(synth.__utterances[0].text, 'What is 9 x 3?');
+  // empty supplied text falls back to explicitly marked content only
+  const reader2 = new AIReader({ settings, synth, getActiveScreen: () => fakeScreen });
+  assert.equal(reader2.speakActiveContent('   '), false);
+  assert.equal(synth.__utterances.length, 1);
+  // disabled reader stays silent either way
+  settings.update({ reader: false });
+  assert.equal(reader.speakActiveContent('Another question?'), false);
+});
+
+test('AI reader: plain test doubles keep synchronous behavior (no native timers armed)', () => {
+  const settings = new SettingsState(new GeonStorage({ backend: memoryBackend() }));
+  settings.update({ reader: true });
+  const synth = { __utterances: [], cancel: () => {} };
+  const reader = new AIReader({ settings, synth, getActiveScreen: () => null });
+  assert.equal(reader.speak('sync behavior'), true);
+  assert.equal(reader._native, false);
+  assert.equal(reader._retryTimer, null, 'no watchdog without a native synth');
+  assert.equal(synth.__utterances.length, 1);
+});

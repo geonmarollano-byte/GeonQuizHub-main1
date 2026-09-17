@@ -172,24 +172,52 @@ assert.equal(engine.lives, 6, 'timeout must cost a life');
 assert.equal(speech.utterances.at(-1), "Time's up.", 'timeout must speak "Time\'s up."');
 assert.equal(speech.utterances.length, 5, 'timeout retry must not re-speak the question');
 
+// MULTI-LEVEL MARCH (levels 3->5): the AI Reader must speak the ACTIVE
+// question DIRECTLY from the question data at every level transition, for
+// every level, not only the first ones.
+for (let expectedLevel = 3; expectedLevel <= 5; expectedLevel += 1) {
+  engine = dom.window.GEON.engine();
+  const ans = engine.current.answer;
+  const rightBtn = Array.from(dom.window.document.querySelectorAll('#quiz-choices .choice-btn')).find(
+    (b) => b.querySelector('.choice-text').textContent === ans
+  );
+  click(rightBtn);
+  assert.equal(speech.utterances.at(-1), 'Excellent!', `level ${expectedLevel - 1} correct must speak feedback`);
+  click('#quiz-next');
+  await wait(5);
+  engine = dom.window.GEON.engine();
+  assert.equal(engine.currentLevel, expectedLevel, `did not advance to level ${expectedLevel}`);
+  assert.equal($('#quiz-level').textContent, `LVL ${expectedLevel}`, `level ${expectedLevel} tag not updated`);
+  assert.equal(
+    speech.utterances.at(-1),
+    engine.current.question.question,
+    `level ${expectedLevel} question must be spoken from the question data (not UI text)`
+  );
+  // rapid duplicate NEXT clicks while answering must never re-speak
+  click('#quiz-next');
+  await wait(2);
+  assert.equal(speech.utterances.at(-1), engine.current.question.question, `rapid NEXT clicks at level ${expectedLevel} must not duplicate speech`);
+}
+assert.equal(speech.utterances.length, 11, 'multi-level march: exactly one feedback + one question per level');
+
 // Item flow: buy a 50/50 in the shop, use it in the quiz
 dom.window.GEON.state.addCoins(1000);
 click('[data-nav="shop"]');
 assert.equal(active(), 'screen-shop');
 // AI READER: the Shop screen (items, prices, coins) is never read
-assert.equal(speech.utterances.length, 5, 'shop screen must stay silent');
+assert.equal(speech.utterances.length, 11, 'shop screen must stay silent');
 assert.equal(dom.window.document.querySelectorAll('.shop-item').length, 5);
 const buyButtons = Array.from(dom.window.document.querySelectorAll('.shop-item .btn'))
   .filter((b) => b.textContent === 'BUY');
 click(buyButtons[3]); // 50/50 (order matches SHOP_ITEMS)
 assert.equal(dom.window.GEON.state.itemCount('fifty_fifty'), 1);
-assert.equal(speech.utterances.length, 5, 'purchases must stay silent');
+assert.equal(speech.utterances.length, 11, 'purchases must stay silent');
 // back to the quiz screen (back button returns through history) and use the item
 dom.window.GEON.state.save();
 click('[data-back]'); // shop -> quiz
 assert.equal(active(), 'screen-quiz');
 // AI READER: returning to the quiz re-speaks its (still current) question
-assert.equal(speech.utterances.length, 6, 'quiz re-entry must speak the question once');
+assert.equal(speech.utterances.length, 12, 'quiz re-entry must speak the question once');
 assert.equal(speech.utterances.at(-1), $('#quiz-question').textContent);
 const ffBtn = dom.window.document.querySelector('[data-item="fifty_fifty"]');
 assert.equal(ffBtn.disabled, false, 'fifty_fifty button should be enabled');
@@ -197,14 +225,14 @@ click(ffBtn);
 engine = dom.window.GEON.engine();
 assert.equal(engine.current.eliminated.length, 2, '50/50 did not eliminate two choices');
 assert.equal(dom.window.GEON.state.itemCount('fifty_fifty'), 0, 'item not consumed');
-assert.equal(speech.utterances.length, 6, 'item usage must stay silent');
+assert.equal(speech.utterances.length, 12, 'item usage must stay silent');
 
 // SETTINGS: theme + questioner switching
 click('[data-nav="menu"]');
 click('[data-nav="settings"]');
 assert.equal(active(), 'screen-settings');
 // AI READER: menu and settings screens are never read
-assert.equal(speech.utterances.length, 6, 'menu/settings must stay silent');
+assert.equal(speech.utterances.length, 12, 'menu/settings must stay silent');
 click('[data-theme-set="dark"]');
 assert.equal(dom.window.document.documentElement.getAttribute('data-theme'), 'dark');
 click('[data-theme-set="light"]');
@@ -213,7 +241,7 @@ click('[data-questioner="new"]');
 assert.equal(dom.window.GEON.settings.get('questioner'), 'new');
 click('[data-questioner="previous"]');
 click('[data-theme-set="original"]');
-assert.equal(speech.utterances.length, 6, 'settings interactions must stay silent');
+assert.equal(speech.utterances.length, 12, 'settings interactions must stay silent');
 
 // DAILY CHALLENGE: full 10-question run -> guarded reward
 click('[data-nav="home"]');
@@ -225,7 +253,7 @@ await wait(20);
 engine = dom.window.GEON.engine();
 assert.equal(engine.questions.length, 10, 'daily must have 10 questions');
 // AI READER: daily challenge questions are read like every other quiz level
-assert.equal(speech.utterances.length, 7, 'daily entry must speak the question once');
+assert.equal(speech.utterances.length, 13, 'daily entry must speak the question once');
 assert.equal(speech.utterances.at(-1), $('#quiz-question').textContent);
 const dailyIds = [];
 for (let i = 0; i < 10; i += 1) {
@@ -248,7 +276,7 @@ assert.equal(active(), 'screen-daily-results');
 // AI READER: results screens stay silent; the last spoken line is the final
 // "Excellent!" of question 10 (10 daily + 1 from the normal quiz before)
 assert.equal(speech.utterances.at(-1), 'Excellent!');
-assert.equal(speech.utterances.filter((t) => t === 'Excellent!').length, 11);
+assert.equal(speech.utterances.filter((t) => t === 'Excellent!').length, 14);
 assert.ok($('#daily-results-body').textContent.includes('Daily reward'), 'daily reward line missing');
 const dailyKeys = Object.keys(dom.window.GEON.state.daily);
 assert.equal(dailyKeys.length, 1);

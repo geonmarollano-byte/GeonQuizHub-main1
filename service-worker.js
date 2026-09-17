@@ -5,7 +5,7 @@
  * Strategy: cache-first for same-origin GETs with network fallback, and
  * runtime caching for anything not precached.
  */
-const CACHE_VERSION = 'geonshub-v1.0.1';
+const CACHE_VERSION = 'geonshub-v1.0.2';
 
 const PRECACHE = [
   './',

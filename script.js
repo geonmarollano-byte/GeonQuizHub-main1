@@ -84,21 +84,27 @@ const reader = new AIReader({
 });
 
 /**
- * AI Reader duplicate-speech guard. Tracks the readable content that was last
- * announced so re-renders, retries (the engine re-presents the SAME question
- * after a wrong answer or Second Chance), timers and state changes never
- * speak the same content twice. The first announcement of a screen's content
- * is owned by the router's onChange above; this helper speaks only when the
- * content changes while the screen is already active (e.g. clicking NEXT
- * loads a new question).
+ * AI Reader change announcer + duplicate-speech guard. Tracks the readable
+ * content that was last announced so re-renders, retries (the engine
+ * re-presents the SAME question after a wrong answer or Second Chance),
+ * timers and state changes never speak the same content twice. The first
+ * announcement of a screen's content is owned by the router's onChange
+ * above; this helper speaks only when the content changes while the screen
+ * is already active (e.g. clicking NEXT loads a new question).
+ *
+ * When it speaks, it speaks `text` DIRECTLY from the live game data (the
+ * active question / story question / mission brief + question supplied by
+ * the exact function that just rendered it) - never scraped from the
+ * surrounding UI. If no text is supplied it falls back to the screen's
+ * explicitly marked data-ai-reader content only.
  */
 let lastAnnouncedKey = null;
-function announceReadableContent(screenId, key) {
+function announceContentChange(screenId, key, text) {
   if (key === lastAnnouncedKey) return false;
   lastAnnouncedKey = key;
   const active = router.current && router.current.id === `screen-${screenId}`;
   if (!active) return false;
-  return reader.readCurrentScreen();
+  return reader.speakActiveContent(text);
 }
 
 /** Active question banks: { previous: [...], new: [...] } */
@@ -398,11 +404,11 @@ function bootEngine(mode, questions, opts = {}) {
         $('quiz-next').classList.add('hidden');
         if (level) setText('quiz-level', `LVL ${level}`);
         updateQuizHud();
-        // AI Reader: speak the question only on in-screen question changes
-        // (screen entry is announced by the router). The key guard keeps the
-        // engine's automatic same-question retry from cutting off the spoken
-        // answer feedback.
-        announceReadableContent('quiz', `quiz:${question.id ?? question.question}`);
+        // AI Reader: speak the question DIRECTLY from the question data on
+        // in-screen question changes (screen entry is announced by the
+        // router). The key guard keeps the engine's automatic same-question
+        // retry from cutting off the spoken answer feedback.
+        announceContentChange('quiz', `quiz:${question.id ?? question.question}`, question.question);
       },
       onTick: (remaining) => {
         const total = Math.max(1, engine.mode.secondsPerQuestion);
@@ -792,8 +798,9 @@ function renderReviewerQuestion() {
   });
   clear($('reviewer-feedback'));
   $('reviewer-next').classList.add('hidden');
-  // AI Reader: speak the reviewer question on in-screen question changes.
-  announceReadableContent('reviewer-quiz', `reviewer:${q.id ?? q.question}`);
+  // AI Reader: speak the reviewer question (from the question data) on
+  // in-screen question changes.
+  announceContentChange('reviewer-quiz', `reviewer:${q.id ?? q.question}`, q.question);
 }
 
 function answerReviewer(choice, btn, q) {
@@ -918,10 +925,11 @@ function renderStoryQuestion() {
   });
   clear($('story-feedback'));
   $('story-next').classList.add('hidden');
-  // AI Reader: speak the story question on in-screen question changes. The
-  // story passage itself is announced when the story-reader screen opens
-  // (router onChange reads the marked #story-passage).
-  announceReadableContent('story-questions', `story:${storyRun.story.id}:${storyRun.index}`);
+  // AI Reader: speak the story question (from the question data) on
+  // in-screen question changes. The story passage itself is announced when
+  // the story-reader screen opens (router onChange reads the marked
+  // #story-passage).
+  announceContentChange('story-questions', `story:${storyRun.story.id}:${storyRun.index}`, q.question);
 }
 
 function answerStory(choice, btn, q) {
@@ -1011,10 +1019,11 @@ function renderMission() {
     onSelect: (choice, btn) => answerMission(choice, btn),
   });
   clear($('mission-feedback'));
-  // AI Reader: speak the problem brief + question on in-screen changes. The
-  // key guard keeps the wrong-answer retry (re-render of the same mission)
-  // from re-speaking the question over the spoken feedback.
-  announceReadableContent('mission', `mission:${mission.id}`);
+  // AI Reader: speak the problem brief + question (from the mission data)
+  // on in-screen changes. The key guard keeps the wrong-answer retry
+  // (re-render of the same mission) from re-speaking the question over the
+  // spoken feedback.
+  announceContentChange('mission', `mission:${mission.id}`, `${mission.brief} ${mission.question}`);
 }
 
 function answerMission(choice, btn) {
